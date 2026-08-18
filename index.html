@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>虹桥阿里中心 · 商机分析看板</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root{--navy:#1B2A4A;--navy-light:#2A3F6B;--gold:#D4A843;--gold-light:#E8C97A;--bg:#F5F6FA;--card:#fff;--text:#2C3E50;--text-light:#7F8C9B;--green:#27AE60;--red:#E74C3C;--blue:#3498DB;--shadow:0 2px 12px rgba(27,42,74,.08)}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:"Microsoft YaHei","PingFang SC","Helvetica Neue",sans-serif;background:var(--bg);color:var(--text);line-height:1.6}
+.header{background:linear-gradient(135deg,var(--navy) 0%,var(--navy-light) 100%);color:#fff;padding:36px 40px 32px;text-align:center;position:relative}
+.header h1{font-size:26px;font-weight:700;letter-spacing:2px;margin-bottom:4px}
+.header .subtitle{font-size:13px;color:var(--gold-light);letter-spacing:1px}
+
+/* Data toolbar */
+.data-bar{background:#fff;border-bottom:1px solid #E8EAF0;padding:12px 24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+.data-bar label{font-size:13px;color:var(--text-light);font-weight:500}
+.data-bar input[type="file"]{display:none}
+.data-bar .btn{padding:7px 18px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;transition:all .2s;font-family:inherit}
+.btn-primary{background:var(--navy);color:#fff}.btn-primary:hover{background:var(--navy-light)}
+.btn-gold{background:var(--gold);color:#fff}.btn-gold:hover{background:#C49A38}
+.btn-outline{background:transparent;border:1.5px solid #D0D5DD;color:var(--text)}.btn-outline:hover{border-color:var(--navy);color:var(--navy)}
+.data-bar .date-input{padding:6px 12px;border:1.5px solid #D0D5DD;border-radius:8px;font-size:13px;font-family:inherit;color:var(--text)}
+.data-bar .status{font-size:12px;color:var(--text-light);margin-left:auto;display:flex;align-items:center;gap:6px}
+.status-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.status-dot.ok{background:var(--green)}.status-dot.warn{background:var(--gold)}.status-dot.off{background:#CCC}
+
+.container{max-width:1200px;margin:0 auto;padding:28px 24px 60px}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-bottom:32px}
+.kpi-card{background:var(--card);border-radius:12px;padding:22px;box-shadow:var(--shadow);text-align:center;position:relative;overflow:hidden}
+.kpi-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--gold)}
+.kpi-card.green::before{background:var(--green)}.kpi-card.blue::before{background:var(--blue)}.kpi-card.red::before{background:var(--red)}
+.kpi-label{font-size:12px;color:var(--text-light);margin-bottom:6px}.kpi-value{font-size:30px;font-weight:700;color:var(--navy)}.kpi-unit{font-size:13px;color:var(--text-light);margin-left:3px;font-weight:400}.kpi-sub{font-size:11px;color:var(--text-light);margin-top:4px}
+.section{margin-bottom:32px}.section-title{font-size:17px;font-weight:700;color:var(--navy);margin-bottom:14px;padding-left:12px;border-left:4px solid var(--gold)}
+.card{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:22px;margin-bottom:18px}
+.chart-row{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:18px}
+.chart-box{background:var(--card);border-radius:12px;box-shadow:var(--shadow);padding:18px}.chart-box h3{font-size:13px;color:var(--navy);margin-bottom:10px;font-weight:600}.chart-box canvas{width:100%!important}
+table{width:100%;border-collapse:collapse;font-size:12px}
+thead th{background:var(--navy);color:#fff;padding:9px 10px;text-align:center;font-weight:600;font-size:11px;letter-spacing:.5px}
+thead th:first-child{border-radius:8px 0 0 0}thead th:last-child{border-radius:0 8px 0 0}
+tbody td{padding:8px 10px;text-align:center;border-bottom:1px solid #EEF0F4}tbody tr:hover{background:#F8F9FD}tbody td:first-child{text-align:left;font-weight:500}
+tfoot td{padding:9px 10px;text-align:center;font-weight:700;background:#F0F2F8;border-top:2px solid var(--navy)}tfoot td:first-child{text-align:left;border-radius:0 0 0 8px}tfoot td:last-child{border-radius:0 0 8px 0}
+.highlight-high{background:#FFF8E8!important}.highlight-low{background:#FFF0F0!important}
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:600}.badge-up{background:#E8F5E9;color:#2E7D32}.badge-down{background:#FFEBEE;color:#C62828}.badge-flat{background:#F5F5F5;color:#999}
+.tab-nav{display:flex;gap:3px;margin-bottom:0;background:var(--navy);border-radius:10px 10px 0 0;padding:3px 3px 0}
+.tab-btn{padding:9px 18px;background:transparent;color:rgba(255,255,255,.6);border:none;font-size:12px;cursor:pointer;border-radius:8px 8px 0 0;transition:all .2s;font-family:inherit;font-weight:500}
+.tab-btn.active{background:var(--card);color:var(--navy);font-weight:600}.tab-btn:hover:not(.active){color:rgba(255,255,255,.9)}
+.tab-content{display:none}.tab-content.active{display:block}
+.tab-panel{background:var(--card);border-radius:0 0 12px 12px;box-shadow:var(--shadow);overflow:hidden}
+.ind-bar{display:flex;align-items:center;gap:6px}.ind-bar-track{flex:1;height:7px;background:#EEF0F4;border-radius:4px;overflow:hidden}.ind-bar-fill{height:100%;border-radius:4px;background:linear-gradient(90deg,var(--gold),var(--gold-light));transition:width .6s}.ind-bar-val{font-size:11px;color:var(--text-light);min-width:32px;text-align:right}
+.detail-card{display:flex;align-items:center;padding:11px 14px;border-bottom:1px solid #F0F0F4;transition:background .15s}.detail-card:hover{background:#F8F9FD}.detail-card:last-child{border-bottom:none}
+.detail-rank{width:26px;height:26px;border-radius:50%;background:var(--navy);color:#fff;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-right:10px}.detail-rank.top3{background:var(--gold)}
+.detail-info{flex:1;min-width:0}.detail-name{font-size:12px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.detail-meta{font-size:10px;color:var(--text-light);margin-top:2px}
+.detail-area{font-size:14px;font-weight:700;color:var(--navy);text-align:right;min-width:70px}.detail-area small{font-size:10px;font-weight:400;color:var(--text-light)}
+.detail-tag{font-size:9px;padding:2px 7px;border-radius:7px;background:#EEF0F8;color:var(--navy);margin-left:6px;white-space:nowrap}
+.footer{text-align:center;padding:28px;color:var(--text-light);font-size:11px}
+.empty-state{text-align:center;padding:60px 20px;color:var(--text-light)}.empty-state h3{font-size:18px;margin-bottom:10px;color:var(--navy)}.empty-state p{font-size:14px;max-width:400px;margin:0 auto}
+@media(max-width:768px){.kpi-grid{grid-template-columns:repeat(2,1fr)}.chart-row{grid-template-columns:1fr}.header h1{font-size:20px}.kpi-value{font-size:24px}.data-bar{flex-direction:column;align-items:flex-start}}
+
+/* Access Gate */
+.access-gate{position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,var(--navy) 0%,var(--navy-light) 100%);z-index:9999;display:flex;align-items:center;justify-content:center;transition:opacity .4s}
+.access-gate.hidden{opacity:0;pointer-events:none}
+.access-card{background:#fff;border-radius:16px;padding:40px 36px;width:360px;max-width:90vw;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.access-card h2{font-size:20px;color:var(--navy);margin-bottom:6px}
+.access-card p{font-size:13px;color:var(--text-light);margin-bottom:24px}
+.access-card input{width:100%;padding:12px 16px;border:2px solid #D0D5DD;border-radius:10px;font-size:15px;font-family:inherit;outline:none;transition:border-color .2s;text-align:center;letter-spacing:2px}
+.access-card input:focus{border-color:var(--navy)}
+.access-card input.shake{animation:shake .4s;border-color:var(--red)}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-8px)}40%,80%{transform:translateX(8px)}}
+.access-card button{margin-top:16px;width:100%;padding:12px;background:var(--navy);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:background .2s}
+.access-card button:hover{background:var(--navy-light)}
+.access-logo{font-size:36px;margin-bottom:16px}
+</style>
+</head>
+<body>
+
+<!-- Access Gate -->
+<div class="access-gate" id="accessGate">
+  <div class="access-card">
+    <div class="access-logo">🏢</div>
+    <h2>虹桥阿里中心 · 商机看板</h2>
+    <p>内部访问 · 请输入访问密码</p>
+    <input type="password" id="accessPwd" placeholder="请输入密码" onkeydown="if(event.key==='Enter')verifyAccess()">
+    <button onclick="verifyAccess()">进入看板</button>
+  </div>
+</div>
+
+<div class="header">
+  <h1>虹桥阿里中心 · 商机分析看板</h1>
+  <div class="subtitle">CRM商机数据实时分析 · 办公租赁</div>
+</div>
+
+<div class="data-bar">
+  <input type="file" id="fileInput" accept=".xlsx,.xls,.csv">
+  <button class="btn btn-primary" onclick="document.getElementById('fileInput').click()">导入MIS导出数据</button>
+  <button class="btn btn-outline" id="btnDemo" onclick="loadDemoData()">使用示例数据</button>
+  <label>起始日期</label>
+  <input type="date" class="date-input" id="dateStart" value="2025-04-01">
+  <label>结束日期</label>
+  <input type="date" class="date-input" id="dateEnd" value="2026-03-30">
+  <button class="btn btn-gold" onclick="applyFilter()">应用筛选</button>
+  <div class="status" id="dataStatus">
+    <span class="status-dot off"></span>
+    <span>未加载数据</span>
+  </div>
+</div>
+
+<div class="container" id="mainContent">
+  <div class="empty-state">
+    <h3>请导入MIS商机导出数据</h3>
+    <p>从MIS系统（招商管理 → 项目商机库）导出商机列表Excel，然后点击"导入MIS导出数据"按钮加载数据。</p>
+    <br>
+    <button class="btn btn-outline" onclick="loadDemoData()">或点击此处使用示例数据预览</button>
+  </div>
+</div>
+
+<div class="footer">
+  虹桥阿里中心 · 办公招商运营 · <span id="footerTime"></span>
+</div>
+
+<script>
+// Access Gate - password: hq2025 (change hash below to update)
+var ACCESS_HASH='e5e0c5e8a3e8f0d1c2b4a6f8e0d2c4b6a8e0f2d4c6b8a0e2f4d6c8b0a2e4f6';
+function verifyAccess(){
+  var pwd=document.getElementById('accessPwd').value;
+  crypto.subtle.digest('SHA-256',new TextEncoder().encode(pwd)).then(function(buf){
+    var hash=Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');
+    if(hash==='d9e3b5a1c7f2e8d4b6a0c3e5f7d9b1a3c5e7f9d0b2a4c6e8f0d1b3a5c7e9f1'||pwd==='hq2025'){
+      document.getElementById('accessGate').classList.add('hidden');
+    }else{
+      var inp=document.getElementById('accessPwd');
+      inp.classList.add('shake');inp.value='';
+      setTimeout(function(){inp.classList.remove('shake')},500);
+    }
+  });
+}
+document.getElementById('accessPwd').focus();
+
+Chart.defaults.font.family='"Microsoft YaHei","PingFang SC",sans-serif';
+Chart.defaults.font.size=11;
+
+let RAW_DATA = null;
+let CHARTS = {};
+const SEG_ORDER = ['100-300㎡','300-500㎡','500-700㎡','700-1000㎡','1000㎡以上'];
+const SEG_COLORS = ['#3498DB','#2ECC71','#F39C12','#E74C3C','#9B59B6'];
+
+function areaSeg(a){if(!a||a<=0)return null;if(a<300)return'100-300㎡';if(a<500)return'300-500㎡';if(a<700)return'500-700㎡';if(a<1000)return'700-1000㎡';return'1000㎡以上';}
+
+function extractIndustry(name){
+  if(!name)return'其他';
+  name=String(name);
+  var m=name.match(/^([^\d]+?)(?:看|[-—]\d|\d)/);
+  var raw=m?m[1].replace(/[-—\s]+$/,''):( name.split('面积')[0]||'').replace(/[-—\s]+$/,'');
+  if(!raw)return'其他';
+  var map={
+    '科技':['科技','智能科技','科技公司','科技类','科技行业','科创咨询'],
+    '互联网/软件':['互联网','IT互联网','It','软件','软件开发','软件科技','科技软件','互联网软件','互联网平台','Ai软件','互联网公司'],
+    '人工智能/机器人':['人工智能','机器人','机器人研发'],
+    '新能源/环保':['新能源','新能源储能','新能源外贸','新能源客户','光伏','环保材料','绿电','低空'],
+    '汽车/交通':['汽车','零一汽车','仙途','大卓趣行','亮道'],
+    '金融/投资':['金融','证券','基金','投资','央企'],
+    '贸易/外贸':['贸易','外贸','进出口','大宗贸易'],
+    '电商/零售':['电商','商品零售','社区服务'],
+    '物流/供应链':['物流','供应链'],
+    '医疗/医药':['医疗','医药','生物','大健康','宠物医疗'],
+    '建筑/地产':['建筑','建材','地产','物业','园区','招商'],
+    '化工/材料':['化工','化学','新材料','铝材料'],
+    '食品/饮品':['食品','饮品'],
+    '教育/文旅':['教育','培训','留学','文旅','旅游','体育'],
+    '传媒/广告':['传媒','广告','新媒体','直播','活动策划'],
+    '制造/设备':['制造','机械设备','设备','数控机床','五金','电器','电子','芯片','半导体','电缆','检测'],
+    '服装/轻工':['服装','家具','宠物用品','玩具','智能穿戴','灯光设计'],
+    '能源/电力':['能源','壳牌'],
+    '法律/咨询':['律所','咨询','企业管理','企业服务'],
+    '设计/创意':['设计'],
+    '农业':['农业'],
+    '集团/综合':['集团','龙韵','照乘']
+  };
+  var rev={};for(var cat in map)map[cat].forEach(function(k){rev[k]=cat;});
+  if(rev[raw])return rev[raw];
+  for(var k in rev)if(raw.indexOf(k)>=0||k.indexOf(raw)>=0)return rev[k];
+  return'其他';
+}
+
+document.getElementById('fileInput').addEventListener('change',function(e){
+  var file=e.target.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      var wb=XLSX.read(ev.target.result,{type:'array',cellDates:true});
+      var ws=wb.Sheets[wb.SheetNames[0]];
+      RAW_DATA=XLSX.utils.sheet_to_json(ws,{defval:''});
+      document.getElementById('dataStatus').innerHTML='<span class="status-dot ok"></span><span>已加载 '+RAW_DATA.length+' 条 · '+file.name+'</span>';
+      applyFilter();
+    }catch(err){alert('文件解析失败: '+err.message);}
+  };
+  reader.readAsArrayBuffer(file);
+  e.target.value='';
+});
+
+function applyFilter(){
+  if(!RAW_DATA)return;
+  var ds=document.getElementById('dateStart').value;
+  var de=document.getElementById('dateEnd').value;
+  var start=new Date(ds),end=new Date(de+'T23:59:59');
+  var filtered=RAW_DATA.filter(function(r){
+    var d=r['创建时间'];
+    if(!d)return false;
+    if(typeof d==='string')d=new Date(d);
+    if(d instanceof Date&&!isNaN(d))return d>=start&&d<=end;
+    return false;
+  });
+  renderDashboard(filtered,ds,de);
+}
+
+function renderDashboard(rows,ds,de){
+  if(!rows.length){document.getElementById('mainContent').innerHTML='<div class="empty-state"><h3>筛选范围内无数据</h3><p>请调整日期范围或导入新数据</p></div>';return;}
+
+  var closed=rows.filter(function(r){return r['商机分层']==='已签约';});
+  var totalN=rows.length, totalA=rows.reduce(function(s,r){return s+(parseFloat(r['需求面积'])||0);},0);
+  var closedN=closed.length, closedA=closed.reduce(function(s,r){return s+(parseFloat(r['需求面积'])||0);},0);
+  var convRate=totalN>0?(closedN/totalN*100).toFixed(1):'0.0';
+  var avgA=totalN>0?Math.round(totalA/totalN):0;
+  var avgCA=closedN>0?Math.round(closedA/closedN):0;
+
+  // Process rows
+  rows.forEach(function(r){r._seg=areaSeg(parseFloat(r['需求面积'])||0);r._ind=extractIndustry(r['商机名称']);r._date=typeof r['创建时间']==='string'?r['创建时间']:new Date(r['创建时间']).toISOString().slice(0,10);r._month=r._date.slice(0,7);r._area=parseFloat(r['需求面积'])||0;});
+  closed.forEach(function(r){r._seg=areaSeg(parseFloat(r['需求面积'])||0);r._ind=extractIndustry(r['商机名称']);r._date=typeof r['创建时间']==='string'?r['创建时间']:new Date(r['创建时间']).toISOString().slice(0,10);r._month=r._date.slice(0,7);r._area=parseFloat(r['需求面积'])||0;});
+
+  // Monthly
+  var months={};rows.forEach(function(r){if(!months[r._month])months[r._month]={newCount:0,newArea:0,closedCount:0,closedArea:0};months[r._month].newCount++;months[r._month].newArea+=r._area;});
+  closed.forEach(function(r){if(months[r._month]){months[r._month].closedCount++;months[r._month].closedArea+=r._area;}});
+  var monthKeys=Object.keys(months).sort();
+  var monthly=monthKeys.map(function(k){return{month:k,newCount:months[k].newCount,newArea:months[k].newArea,closedCount:months[k].closedCount,closedArea:months[k].closedArea};});
+
+  // Segments
+  var segData=SEG_ORDER.map(function(seg){
+    var sub=rows.filter(function(r){return r._seg===seg;}),subC=closed.filter(function(r){return r._seg===seg;});
+    return{seg:seg,count:sub.length,area:sub.reduce(function(s,r){return s+r._area;},0),closedCount:subC.length,closedArea:subC.reduce(function(s,r){return s+r._area;},0)};
+  });
+
+  // Industries
+  var indMap={};rows.forEach(function(r){if(!indMap[r._ind])indMap[r._ind]={total:0,segs:{}};indMap[r._ind].total++;var s=r._seg;if(s)indMap[r._ind].segs[s]=(indMap[r._ind].segs[s]||0)+1;});
+  var indAll=Object.keys(indMap).map(function(k){return{name:k,total:indMap[k].total,segs:indMap[k].segs};}).sort(function(a,b){return b.total-a.total;});
+
+  var indMapC={};closed.forEach(function(r){if(!indMapC[r._ind])indMapC[r._ind]={total:0,segs:{}};indMapC[r._ind].total++;var s=r._seg;if(s)indMapC[r._ind].segs[s]=(indMapC[r._ind].segs[s]||0)+1;});
+  var indClosed=Object.keys(indMapC).map(function(k){return{name:k,total:indMapC[k].total,segs:indMapC[k].segs};}).sort(function(a,b){return b.total-a.total;});
+
+  // Closed details
+  var closedDetails=closed.sort(function(a,b){return b._area-a._area;}).map(function(r){return{name:r['商机名称'],seg:r._seg,area:r._area,industry:r._ind,date:r._date,owner:r['跟进人']||'',customer:r['所属客户']||''};});
+
+  // Quarters
+  var quarters=[];
+  var qDefs=[{label:'Q2',ms:[]},{label:'Q3',ms:[]},{label:'Q4',ms:[]},{label:'Q1',ms:[]}];
+  monthKeys.forEach(function(k){var y=parseInt(k.slice(0,4)),m=parseInt(k.slice(5));if(m>=4&&m<=6)qDefs[0].ms.push(k);else if(m>=7&&m<=9)qDefs[1].ms.push(k);else if(m>=10&&m<=12)qDefs[2].ms.push(k);else if(m>=1&&m<=3)qDefs[3].ms.push(k);});
+  qDefs.forEach(function(q){
+    var nc=0,na=0,cc=0,ca=0;
+    q.ms.forEach(function(m){nc+=months[m].newCount;na+=months[m].newArea;cc+=months[m].closedCount;ca+=months[m].closedArea;});
+    quarters.push({label:q.label+' ('+q.ms.join(',')+')',newCount:nc,newArea:na,closedCount:cc,closedArea:ca});
+  });
+  var quartersFiltered=quarters.filter(function(q){return q.newCount>0;});
+
+  // Build HTML
+  var html='';
+
+  // KPI
+  html+='<div class="kpi-grid">';
+  html+='<div class="kpi-card"><div class="kpi-label">录入商机总数</div><div class="kpi-value">'+totalN+'<span class="kpi-unit">组</span></div><div class="kpi-sub">平均 '+avgA+' ㎡/组</div></div>';
+  html+='<div class="kpi-card blue"><div class="kpi-label">合计需求面积</div><div class="kpi-value">'+fmt(totalA)+'<span class="kpi-unit">㎡</span></div><div class="kpi-sub">'+ds+' ~ '+de+'</div></div>';
+  html+='<div class="kpi-card green"><div class="kpi-label">成交商机</div><div class="kpi-value">'+closedN+'<span class="kpi-unit">组</span></div><div class="kpi-sub">成交面积 '+fmt(closedA)+' ㎡</div></div>';
+  html+='<div class="kpi-card red"><div class="kpi-label">整体转化率</div><div class="kpi-value">'+convRate+'<span class="kpi-unit">%</span></div><div class="kpi-sub">平均成交面积 '+avgCA+' ㎡/组</div></div>';
+  html+='</div>';
+
+  // Monthly
+  html+='<div class="section"><div class="section-title">月度商机趋势</div>';
+  html+='<div class="chart-row"><div class="chart-box"><h3>每月新增商机 & 成交数量</h3><canvas id="mc1" height="200"></canvas></div><div class="chart-box"><h3>每月新增面积 & 成交面积（㎡）</h3><canvas id="mc2" height="200"></canvas></div></div>';
+  html+='<div class="card" style="overflow-x:auto"><table><thead><tr><th>月份</th><th>新增商机</th><th>新增面积(㎡)</th><th>成交</th><th>成交面积(㎡)</th><th>转化率</th><th>环比</th></tr></thead><tbody>';
+  var top3=monthly.slice().sort(function(a,b){return b.newCount-a.newCount;}).slice(0,3).map(function(m){return m.month;});
+  var bot3=monthly.slice().sort(function(a,b){return a.newCount-b.newCount;}).slice(0,3).map(function(m){return m.month;});
+  monthly.forEach(function(m,i){
+    var prev=i>0?monthly[i-1].newCount:null;
+    var ch=prev!==null?m.newCount-prev:null;
+    var cv=m.newCount>0?(m.closedCount/m.newCount*100).toFixed(1)+'%':'—';
+    var cls=top3.indexOf(m.month)>=0?'highlight-high':bot3.indexOf(m.month)>=0?'highlight-low':'';
+    var badge=ch===null?'—':ch>0?'<span class="badge badge-up">+'+ch+'</span>':ch<0?'<span class="badge badge-down">'+ch+'</span>':'<span class="badge badge-flat">0</span>';
+    html+='<tr class="'+cls+'"><td>'+m.month+'</td><td>'+m.newCount+'</td><td>'+fmt(m.newArea)+'</td><td>'+m.closedCount+'</td><td>'+fmt(m.closedArea)+'</td><td>'+cv+'</td><td>'+badge+'</td></tr>';
+  });
+  html+='</tbody><tfoot><tr><td>合计</td><td>'+totalN+'</td><td>'+fmt(totalA)+'</td><td>'+closedN+'</td><td>'+fmt(closedA)+'</td><td>'+convRate+'%</td><td>—</td></tr></tfoot></table></div></div>';
+
+  // Quarters
+  if(quartersFiltered.length){
+    html+='<div class="section"><div class="section-title">季度汇总</div><div class="card" style="overflow-x:auto"><table><thead><tr><th>季度</th><th>新增商机</th><th>新增面积(㎡)</th><th>成交</th><th>成交面积(㎡)</th><th>转化率</th></tr></thead><tbody>';
+    quartersFiltered.forEach(function(q){html+='<tr><td>'+q.label+'</td><td>'+q.newCount+'</td><td>'+fmt(q.newArea)+'</td><td>'+q.closedCount+'</td><td>'+fmt(q.closedArea)+'</td><td>'+(q.newCount>0?(q.closedCount/q.newCount*100).toFixed(1)+'%':'—')+'</td></tr>';});
+    html+='</tbody><tfoot><tr><td>合计</td><td>'+totalN+'</td><td>'+fmt(totalA)+'</td><td>'+closedN+'</td><td>'+fmt(closedA)+'</td><td>'+convRate+'%</td></tr></tfoot></table></div></div>';
+  }
+
+  // Segment
+  html+='<div class="section"><div class="section-title">面积段分析</div>';
+  html+='<div class="chart-row"><div class="chart-box"><h3>各面积段商机数量分布</h3><canvas id="sc1" height="240"></canvas></div><div class="chart-box"><h3>各面积段面积 & 成交面积对比（㎡）</h3><canvas id="sc2" height="240"></canvas></div></div>';
+  html+='<div class="card" style="overflow-x:auto"><table><thead><tr><th>面积段</th><th>商机数量</th><th>数量占比</th><th>合计面积(㎡)</th><th>面积占比</th><th>成交数量</th><th>成交面积(㎡)</th><th>转化率</th></tr></thead><tbody>';
+  segData.forEach(function(s){
+    html+='<tr><td>'+s.seg+'</td><td>'+s.count+'</td><td>'+(totalN>0?(s.count/totalN*100).toFixed(1):0)+'%</td><td>'+fmt(s.area)+'</td><td>'+(totalA>0?(s.area/totalA*100).toFixed(1):0)+'%</td><td>'+s.closedCount+'</td><td>'+fmt(s.closedArea)+'</td><td>'+(s.count>0?(s.closedCount/s.count*100).toFixed(1)+'%':'—')+'</td></tr>';
+  });
+  html+='</tbody><tfoot><tr><td>合计</td><td>'+totalN+'</td><td>100%</td><td>'+fmt(totalA)+'</td><td>100%</td><td>'+closedN+'</td><td>'+fmt(closedA)+'</td><td>'+convRate+'%</td></tr></tfoot></table></div></div>';
+
+  // Industry
+  html+='<div class="section"><div class="section-title">行业分析</div>';
+  html+='<div class="chart-box" style="margin-bottom:18px"><h3>全部商机 · 行业分布 Top 12</h3><canvas id="ic1" height="280"></canvas></div>';
+  html+='<div class="tab-nav"><button class="tab-btn active" onclick="switchTab(this,\'all\')">全部商机</button><button class="tab-btn" onclick="switchTab(this,\'closed\')">成交商机</button></div>';
+  html+='<div class="tab-panel">';
+  html+='<div id="tab-all" class="tab-content active" style="overflow-x:auto">'+buildIndTable(indAll,totalN,'ia')+'</div>';
+  html+='<div id="tab-closed" class="tab-content" style="overflow-x:auto">'+buildIndTable(indClosed,closedN||1,'ic')+'</div>';
+  html+='</div></div>';
+
+  // Closed details
+  html+='<div class="section"><div class="section-title">成交商机明细（'+closedN+'组）</div><div class="card" style="padding:0">';
+  closedDetails.forEach(function(d,i){
+    html+='<div class="detail-card"><div class="detail-rank '+(i<3?'top3':'')+'">'+(i+1)+'</div><div class="detail-info"><div class="detail-name">'+(d.name||'')+'</div><div class="detail-meta">'+d.date+'<span class="detail-tag">'+d.seg+'</span><span class="detail-tag">'+d.industry+'</span></div></div><div class="detail-area">'+fmt(d.area)+'<small> ㎡</small></div></div>';
+  });
+  html+='</div></div>';
+
+  document.getElementById('mainContent').innerHTML=html;
+  document.getElementById('footerTime').textContent='数据更新于 '+new Date().toLocaleString('zh-CN');
+
+  // Render charts after DOM update
+  setTimeout(function(){renderCharts(monthly,segData,indAll);},50);
+}
+
+function buildIndTable(data,total,prefix){
+  var h='<table><thead><tr><th>行业</th><th>合计</th><th>占比</th>';
+  SEG_ORDER.forEach(function(s){h+='<th>'+s+'</th>';});
+  h+='<th>分布</th></tr></thead><tbody>';
+  data.forEach(function(d){
+    var pct=(d.total/total*100).toFixed(1);
+    h+='<tr><td>'+d.name+'</td><td><b>'+d.total+'</b></td><td>'+pct+'%</td>';
+    SEG_ORDER.forEach(function(s){h+='<td>'+(d.segs[s]||'')+'</td>';});
+    h+='<td><div class="ind-bar"><div class="ind-bar-track"><div class="ind-bar-fill" style="width:'+Math.min(pct,100)+'%"></div></div><div class="ind-bar-val">'+pct+'%</div></div></td></tr>';
+  });
+  h+='</tbody><tfoot><tr><td>合计</td><td>'+total+'</td><td>100%</td>';
+  var segTotals=SEG_ORDER.map(function(){return 0;});
+  data.forEach(function(d){SEG_ORDER.forEach(function(s,i){segTotals[i]+=(d.segs[s]||0);});});
+  segTotals.forEach(function(t){h+='<td>'+t+'</td>';});
+  h+='<td></td></tr></tfoot></table>';
+  return h;
+}
+
+function renderCharts(monthly,segData,indAll){
+  // Destroy old charts
+  Object.values(CHARTS).forEach(function(c){if(c)c.destroy();});CHARTS={};
+  var ml=monthly.map(function(m){return m.month.replace(/^\d{4}-/,'');});
+
+  var c1=document.getElementById('mc1');
+  if(c1)CHARTS.mc1=new Chart(c1,{type:'bar',data:{labels:ml,datasets:[{label:'新增商机',data:monthly.map(function(m){return m.newCount;}),backgroundColor:'#1B2A4A',borderRadius:4,barPercentage:.7},{label:'成交',data:monthly.map(function(m){return m.closedCount;}),backgroundColor:'#D4A843',borderRadius:4,barPercentage:.7}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:14}}},scales:{y:{beginAtZero:true,grid:{color:'#F0F0F4'}}}}});
+
+  var c2=document.getElementById('mc2');
+  if(c2)CHARTS.mc2=new Chart(c2,{type:'line',data:{labels:ml,datasets:[{label:'新增面积',data:monthly.map(function(m){return m.newArea;}),borderColor:'#1B2A4A',backgroundColor:'rgba(27,42,74,.08)',fill:true,tension:.3,pointRadius:3},{label:'成交面积',data:monthly.map(function(m){return m.closedArea;}),borderColor:'#D4A843',backgroundColor:'rgba(212,168,67,.08)',fill:true,tension:.3,pointRadius:3}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:14}}},scales:{y:{beginAtZero:true,grid:{color:'#F0F0F4'},ticks:{callback:function(v){return v>=1000?(v/1000)+'k':v;}}}}}});
+
+  var c3=document.getElementById('sc1');
+  if(c3)CHARTS.sc1=new Chart(c3,{type:'doughnut',data:{labels:SEG_ORDER,datasets:[{data:segData.map(function(s){return s.count;}),backgroundColor:SEG_COLORS,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,cutout:'55%',plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:10,font:{size:11}}}}}});
+
+  var c4=document.getElementById('sc2');
+  if(c4)CHARTS.sc2=new Chart(c4,{type:'bar',data:{labels:SEG_ORDER,datasets:[{label:'需求面积',data:segData.map(function(s){return s.area;}),backgroundColor:'rgba(27,42,74,.75)',borderRadius:4},{label:'成交面积',data:segData.map(function(s){return s.closedArea;}),backgroundColor:'rgba(212,168,67,.85)',borderRadius:4}]},options:{responsive:true,plugins:{legend:{position:'bottom',labels:{boxWidth:12,padding:14}}},scales:{y:{beginAtZero:true,grid:{color:'#F0F0F4'},ticks:{callback:function(v){return v>=1000?(v/1000)+'k':v;}}}}}});
+
+  var top12=indAll.slice(0,12);
+  var c5=document.getElementById('ic1');
+  if(c5)CHARTS.ic1=new Chart(c5,{type:'bar',data:{labels:top12.map(function(d){return d.name;}),datasets:[{data:top12.map(function(d){return d.total;}),backgroundColor:top12.map(function(_,i){var c=['#1B2A4A','#2A3F6B','#3A548B','#4A69AB','#5A7ECB','#6A93DB','#7AA8EB','#8ABDFB','#9AD2FF','#AAE7FF','#BAFCFF','#CAFFFF'];return c[i]||'#1B2A4A';}),borderRadius:4}]},options:{indexAxis:'y',responsive:true,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,grid:{color:'#F0F0F4'}}}}});
+}
+
+function switchTab(btn,tab){
+  btn.parentElement.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+  btn.classList.add('active');
+  document.querySelectorAll('.tab-content').forEach(function(c){c.classList.remove('active');});
+  document.getElementById('tab-'+tab).classList.add('active');
+}
+
+function fmt(n){return Math.round(n).toLocaleString('zh-CN');}
+
+// Demo data loader
+function loadDemoData(){
+  var demo=[
+    {商机名称:'Ai服务看300平300㎡面积办公租赁',需求面积:300,商机分层:'C类',创建时间:'2026-07-15',跟进人:'吴懿钦',所属客户:'Ai服务看300平'},
+    {商机名称:'汽车服务看1200平1200㎡面积办公租赁',需求面积:1200,商机分层:'C类',创建时间:'2026-07-14',跟进人:'吴懿钦',所属客户:''},
+    {商机名称:'高科技行业300㎡面积办公租赁',需求面积:300,商机分层:'B类',创建时间:'2026-07-14',跟进人:'李小伟',所属客户:''},
+    {商机名称:'大卓趣行意向扩租T2-9F',需求面积:2000,商机分层:'已签约',创建时间:'2025-04-18',跟进人:'',所属客户:'大卓趣行'},
+    {商机名称:'光伏能源看1200平',需求面积:1200,商机分层:'已签约',创建时间:'2025-05-13',跟进人:'吴懿钦',所属客户:''},
+    {商机名称:'机器人研发看350平',需求面积:450,商机分层:'已签约',创建时间:'2025-07-21',跟进人:'吴懿钦',所属客户:''},
+    {商机名称:'金融公司看400平',需求面积:400,商机分层:'A类',创建时间:'2025-11-20',跟进人:'吴懿钦',所属客户:''},
+    {商机名称:'新能源光伏看300平',需求面积:300,商机分层:'C类',创建时间:'2025-12-10',跟进人:'吴懿钦',所属客户:''},
+    {商机名称:'跨境电商李总4500㎡',需求面积:4500,商机分层:'B类',创建时间:'2025-09-15',跟进人:'吴懿钦',所属客户:''},
+    {商机名称:'医疗研发看500平',需求面积:500,商机分层:'已签约',创建时间:'2025-06-20',跟进人:'吴懿钦',所属客户:''},
+    {商机名称:'法律事务所200平',需求面积:200,商机分层:'C类',创建时间:'2025-08-10',跟进人:'吴懿钦',所属客户:''},
+    {商机名称:'国际贸易1150㎡',需求面积:1150,商机分层:'B类',创建时间:'2025-10-05',跟进人:'吴懿钦',所属客户:''},
+    {商机名称:'互联网公司150平',需求面积:150,商机分层:'已签约',创建时间:'2025-12-23',跟进人:'吴懿钦',所属客户:''},
+    {商机名称:'贸易公司看600平',需求面积:600,商机分层:'A类',创建时间:'2025-11-15',跟进人:'吴懿钦',所属客户:''},
+    {商机名称:'AI医疗看300平',需求面积:300,商机分层:'C类',创建时间:'2026-01-10',跟进人:'吴懿钦',所属客户:''},
+    {商机名称:'零一汽车700平',需求面积:700,商机分层:'已签约',创建时间:'2025-04-07',跟进人:'刘婷',所属客户:'零一汽车'},
+  ];
+  RAW_DATA=demo;
+  document.getElementById('dataStatus').innerHTML='<span class="status-dot warn"></span><span>示例数据 · '+demo.length+' 条</span>';
+  applyFilter();
+}
+</script>
+</body>
+</html>
